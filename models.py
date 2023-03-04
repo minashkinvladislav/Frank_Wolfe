@@ -106,7 +106,7 @@ class GradientDescent:
 
         return x_next
         
-    def projection(x, args):
+    def projection(x):
         """
         Проекция на симплекс
         """

@@ -275,8 +275,8 @@ def acc_mse_scores(gradient_descent, X_test, y_test,
 
 
 # функция для отрисовки графиков сходимости
-def make_err_plot(iterations_list, errors_list, labels, title, x_label="Номер итерации",
-                  y_label="Значение критерия", markers=["^"]*100, markersize=7):
+def make_err_plot(iterations_list, errors_list, labels, title, x_label="Iteration number",
+                  y_label="The value of the criterion", markers=["^"]*100, markersize=7):
     """
     :param iterations_list: список из итераций для кадого вектора ошибок
     :param errors_list: список векторов ошибок

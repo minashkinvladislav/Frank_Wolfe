@@ -245,7 +245,7 @@ def get_grad_opf(x, args):
     batch_size = args['batch_size']
     d = args['d']
     nabla_f = np.zeros(d, dtype=float)
-    for _ in progress(range(batch_size)):
+    for _ in range(batch_size):
         np.random.seed(random.randint(1, 10000))
         e = 2 * np.random.random_sample(d) - 1
         e = e / np.linalg.norm(e, ord=norm)

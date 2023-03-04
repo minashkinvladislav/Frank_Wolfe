@@ -16,7 +16,7 @@ class GradientDescent:
 
     def __init__(self, func, nabla_f, x_0, gamma_k, args, max_steps=400, x_sol=None,
                  nabla_f_true=None,eps=1e-6, criterium='x_k - x^*', use_proj=False,
-                 proj_func=None, use_mirror=False, use_fw=False):
+                 proj_func=None, use_mirror=False, use_fw=False, use_fwmb=False, momentum_k=None):
         '''
         :param func: целевая функция
         :param nabla_f: градиант целевой функции

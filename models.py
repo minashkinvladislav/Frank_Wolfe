@@ -275,7 +275,7 @@ def get_grad_opf(x, args):
         e = 2 * np.random.random_sample(d) - 1
         e = e / np.linalg.norm(e, ord=norm)
 
-        nabla_f += d * (func(x + gamma * e, args) - func(x, args))/ gamma * e
+        nabla_f += d * func(x + gamma * e, args)/ gamma * e
 
     return 1./batch_size * nabla_f
 

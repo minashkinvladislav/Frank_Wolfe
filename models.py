@@ -103,6 +103,25 @@ class GradientDescent:
         x_next = x_curr + gamma * (s_k - x_curr)
 
         return x_next
+        
+    def projection(x):
+        """
+        Проекция на симплекс
+        """
+        x_sort = sorted(x, reverse=True)
+        rho = 0
+        summa = x_sort[0]
+        summa_ans = x_sort[0]
+        for i in range(1, len(x_sort)):
+            summa += x_sort[i]
+            if x_sort[i] + 1 / (i + 1) * (1 - summa) > 0:
+                rho = i
+                summa_ans = summa
+        lamb = 1 / (rho + 1) * (1 - summa_ans)
+        x_answer = np.zeros(len(x_sort))
+        for i in range(len(x_answer)):
+            x_answer[i] = max(x[i] + lamb, 0)
+        return x_answer
 
     def search(self):
         """
@@ -146,7 +165,7 @@ class GradientDescent:
                 x_next = GradientDescent.get_next_default(self, x_curr, k)
 
             if self.use_proj is True:
-                x_next = self.proj_func(x_next, self.args)
+                x_next = self.projection(x_next, self.args)
 
             # добавление новой ошибки в вектор errors
             error = 0

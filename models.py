@@ -62,7 +62,9 @@ class GradientDescent:
             self.nabla_f_true = nabla_f
         else:
             self.nabla_f_true = nabla_f_true
-
+        self.use_fwmb = use_fwmb
+        self.momentum_k = momentum_k
+        
     def get_next_default(self, x_curr, k):
         """
         Обычный шаг градиентного спуска
@@ -122,6 +124,27 @@ class GradientDescent:
         for i in range(len(x_answer)):
             x_answer[i] = max(x[i] + lamb, 0)
         return x_answer
+   
+    def get_next_mbfw(self, x_curr, x_before, y_curr, k):
+        """
+        momentum based fw
+        """
+        gamma = self.gamma_k(k, self.func, self.nabla_f,
+                             x_curr, self.x_sol, self.args)
+
+        momentum = self.momentum_k(k, self.func, self.nabla_f,
+                                   x_curr, self.x_sol, self.args)
+
+        y_k = (1 - momentum) * y_curr + momentum * self.nabla_f(x_curr, self.args) + \
+                 (1 - momentum) * (self.nabla_f(x_curr, self.args) - self.nabla_f(x_before, self.args))
+
+        i_min = np.argmin(self.nabla_f(y_k, self.args))
+        z_k = np.zeros(len(y_k), dtype=float)
+        z_k[i_min] = 1.
+
+        x_next = x_curr + gamma * (z_k - x_curr)
+
+        return x_next
 
     def search(self):
         """
@@ -161,6 +184,8 @@ class GradientDescent:
                 x_next = GradientDescent.get_next_mirror(self, x_curr, k)
             elif self.use_fw is True:
                 x_next = GradientDescent.get_next_fw(self, x_curr, k)
+            elif self.use_fwmb is True:
+                x_next = GradientDescent.get_next_mbfw(self, x_curr, x_before, y_curr, k)
             else:
                 x_next = GradientDescent.get_next_default(self, x_curr, k)
 

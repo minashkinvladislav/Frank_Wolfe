@@ -190,7 +190,7 @@ class GradientDescent:
                 x_next = GradientDescent.get_next_default(self, x_curr, k)
 
             if self.use_proj is True:
-                x_next = self.projection(x_next, self.args)
+                x_next = self.proj_func(x_next)
 
             # добавление новой ошибки в вектор errors
             error = 0

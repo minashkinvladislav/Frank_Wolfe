@@ -1,5 +1,5 @@
 """
-    Модуль с длинными функциями для ДЗ по методам оптимизации
+    Модуль
 """
 
 import time
@@ -16,7 +16,7 @@ class GradientDescent:
 
     def __init__(self, func, nabla_f, x_0, gamma_k, args, max_steps=400, x_sol=None,
                  nabla_f_true=None,eps=1e-6, criterium='x_k - x^*', use_proj=False,
-                 proj_func=None, use_mirror=False, use_fw=False, use_fwmb=False, momentum_k=None):
+                 proj_func=None, use_mirror=False, use_fw=False, use_mbfw=False, momentum_k=None):
         '''
         :param func: целевая функция
         :param nabla_f: градиант целевой функции
@@ -62,7 +62,7 @@ class GradientDescent:
             self.nabla_f_true = nabla_f
         else:
             self.nabla_f_true = nabla_f_true
-        self.use_fwmb = use_fwmb
+        self.use_fwmb = use_mbfw
         self.momentum_k = momentum_k
         
     def get_next_default(self, x_curr, k):
@@ -138,7 +138,7 @@ class GradientDescent:
         y_k = (1 - momentum) * y_curr + momentum * self.nabla_f(x_curr, self.args) + \
                  (1 - momentum) * (self.nabla_f(x_curr, self.args) - self.nabla_f(x_before, self.args))
 
-        i_min = np.argmin(self.nabla_f(y_k, self.args))
+        i_min = np.argmin(y_k)
         z_k = np.zeros(len(y_k), dtype=float)
         z_k[i_min] = 1.
 

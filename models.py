@@ -207,7 +207,7 @@ def get_grad_tpf_v2(x, args):
     batch_size = args['batch_size']
     d = args['d']
     nabla_f = np.zeros(d, dtype=float)
-    for i in progress(range(d)):
+    for i in range(d):
         e = np.zeros(d, dtype=float)
         e[i] = 1
 
@@ -226,7 +226,7 @@ def get_grad_tpf(x, args):
     d = args['d']
     nabla_f = np.zeros(d, dtype=float)
 
-    for i in progress(range(batch_size)):
+    for i in range(batch_size):
         np.random.seed(random.randint(1, 10000))
         e = 2 * np.random.rand(d) - 1
         e = e / np.linalg.norm(e, ord=norm)

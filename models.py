@@ -343,24 +343,24 @@ def make_err_plot(iterations_list, errors_list, labels, title, x_label="Iteratio
 
     for iterations, errors, label, color, marker in \
             zip(iterations_list, errors_list, labels, colors, markers):
-        plt.semilogy(iterations, errors, color=color, label=label, linewidth=2,
-                     marker=marker, markersize=markersize)
+        plt.semilogy(iterations, errors, color = color, label = label, linewidth = 2,
+                     marker = marker, markersize = markersize)
 
     #plt.xticks(np.arange(0, 200, 40), fontsize=25)
     #plt.yticks(fontsize=25)
     #plt.ylim(10 ** (-7), 3)
     #plt.xlim(-50, 1050)
     plt.grid()
-    plt.legend(fontsize=15)
+    plt.legend(fontsize = 15)
     plt.show()
 
 # функция для отрисовки графиков метрик
 def make_score_plot(iterations_list, acc_List, mse_List, labels,
-                    title_first="График зависимости accuracy score от номера итерации",
-                    title_second="График зависимости MSE от номера итерации",
-                    xlabel="Номер итерации", ylabel_first="Accuracy score",
-                    ylabel_second="Mean squared error", markers=["^"]*100,
-                    two_plots=True):
+                    title_first = "График зависимости accuracy score от номера итерации",
+                    title_second = "График зависимости MSE от номера итерации",
+                    xlabel = "Номер итерации", ylabel_first = "Accuracy score",
+                    ylabel_second = "Mean squared error", markers = ["^"] * 100,
+                    two_plots = True):
     """
     :param iterations_list: список из итераций для кадого вектора результатов
     :param acc_List: список списков результатов измерения accuracy_score
@@ -377,8 +377,8 @@ def make_score_plot(iterations_list, acc_List, mse_List, labels,
     colors = ['red', 'green', 'cyan', 'blue', 'purple',
               'black', 'olive', 'pink', 'brown', 'orange']
 
-    if two_plots is True:
-        _, ax = plt.subplots(1, 2, figsize=(25, 10))
+    if two_plots:
+        _, ax = plt.subplots(1, 2, figsize = (25, 10))
         for iterations, acc_score_list, mse_score_list, \
                 label, color, marker in zip(iterations_list, acc_List,
                                             mse_List, labels, colors, markers):

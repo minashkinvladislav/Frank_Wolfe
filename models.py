@@ -255,8 +255,8 @@ def get_grad_tpf(x, args):
         np.random.seed(random.randint(1, 10000))
         e = 2 * np.random.rand(d) - 1
         e = e / np.linalg.norm(e, ord=norm)
-        nabla_f += d * (func(x + gamma * e, args) -\
-                        func(x - gamma * e, args)) / (2. * gamma) * e
+        nabla_f += (func(x + gamma * e, args) -\
+                    func(x - gamma * e, args)) / (2. * gamma) * e
 
 
     return 1. /batch_size * nabla_f
@@ -319,7 +319,7 @@ def acc_mse_scores(gradient_descent, X_test, y_test,
 
 
 # функция для отрисовки графиков сходимости
-def make_err_plot(iterations_list, errors_list, labels, title, x_label="Iteration number",
+def make_err_plot(iterations_list, errors_list, labels, title, x_label="k, iteration number",
                   y_label="The value of the criterion", markers=["^"]*100, markersize=7):
     """
     :param iterations_list: список из итераций для кадого вектора ошибок

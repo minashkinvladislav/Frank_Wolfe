@@ -173,36 +173,7 @@ class FWOptimizer(GDOptimizer):
         x_next = x + learning_rate * (s_k - x)
 
         return x_next
-    
-# class ProjOptimizer(GDOptimizer):
-    
-#     def __init__(self, function, gradient, x_0, step, args):
-#         GDOptimizer.__init__(self, function, gradient, x_0, step, args)    
-    
-#     def get_next(self, x, x_previous, y, k):
-        
-#         """
-#         Проекция на симплекс
-#         """
-        
-#         x_sort = sorted(x, reverse=True)
-#         rho = 0
-#         summa = x_sort[0]
-#         summa_ans = x_sort[0]
-        
-#         for i in range(1, len(x_sort)):
-#             summa += x_sort[i]
-#             if x_sort[i] + 1 / (i + 1) * (1 - summa) > 0:
-#                 rho = i
-#                 summa_ans = summa
-                
-#         lamb = 1 / (rho + 1) * (1 - summa_ans)
-#         x_next = np.zeros(len(x_sort))
-        
-#         for i in range(len(x_next)):
-#             x_next[i] = max(x[i] + lamb, 0)
-            
-#         return x_next
+
     
 class MBFWOptimizer(GDOptimizer):
     

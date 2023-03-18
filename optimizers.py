@@ -9,9 +9,7 @@ from matplotlib import pylab as plt
 # в args: max steps, eps, criterium, gradient_true, x_true, momentum
 
 class GDOptimizer:
-    
     def __init__(self, function, gradient, x_0, step, args):
-        
         '''
         :param function: целевая функция
         :param gradient: градиант целевой функции
@@ -25,19 +23,15 @@ class GDOptimizer:
         self.x_0 = x_0
         self.step = step
         self.args = args
-        
     def get_next(self, x, x_previous, y, k):
-        
         '''
         Градиентный спуск
         '''
-        
         learning_rate = self.step(x, k, self.function, self.gradient, self.args)
 
         return x - learning_rate * self.gradient(x, self.args)
     
     def get_error(self, function, gradient, args, x, x_previous):
-        
         if self.args['criterium'] == 'x_k - x^*':
             return norm(x - self.args['x_sol'], ord=2)
             
@@ -60,14 +54,11 @@ class GDOptimizer:
         
         else:
             raise ValueError('Wrong criterium!')
-            
-    
+
     def projection(self, x):
-        
         """
         Проекция на симплекс
         """
-        
         x_sort = sorted(x, reverse=True)
         rho = 0
         summa = x_sort[0]
@@ -86,16 +77,13 @@ class GDOptimizer:
             x_next[i] = max(x[i] + lamb, 0)
             
         return x_next
-    
-    
+
     def search(self):
-        
         '''
         :return: x - значение аргумента, на котором достигается минимум функции
         :return: errors - вектор значений критерия на каждой итерации
         :return: times - вектор времен работы
         '''
-        
         x = self.x_0
         x_previous = self.x_0
         y = self.x_0
@@ -129,18 +117,16 @@ class GDOptimizer:
         errors = np.array(errors)
         times = np.array(times)
         return x, errors, times
-    
+
+
 class MDOptimizer(GDOptimizer):
-    
     def __init__(self, function, gradient, x_0, step, args):
         GDOptimizer.__init__(self, function, gradient, x_0, step, args)
         
     def get_next(self, x, x_previous, y, k):
-        
         '''
         Зеркальный метод для симплекса
         '''
-        
         learning_rate = self.step(k, self.function, self.gradient, x, self.args)
         sigma = 0
         
@@ -152,21 +138,19 @@ class MDOptimizer(GDOptimizer):
             x_next[i] = (x_i / sigma) * np.exp(-learning_rate * self.gradient(x, self.args)[i])
         
         return x_next / np.linalg.norm(x_next, ord = 1)
-    
+
+
 class FWOptimizer(GDOptimizer):
-    
     def __init__(self, function, gradient, x_0, step, args):
         GDOptimizer.__init__(self, function, gradient, x_0, step, args)
         
     def get_next(self, x, x_previous, y, k):
-        
         '''
         Метод Франка-Вульфа для симплекса
         '''
-        
         learning_rate = self.step(k, self.function, self.gradient, x, self.args)
 
-        i_min = np.argmin(self.gradient(x, self.args))
+        i_min = np.argmax(self.gradient(x, self.args))
         s_k = np.zeros(len(x), dtype=float)
         s_k[i_min] = 1.
 
@@ -174,35 +158,50 @@ class FWOptimizer(GDOptimizer):
 
         return x_next
 
-    
+
 class MBFWOptimizer(GDOptimizer):
-    
     def __init__(self, function, gradient, x_0, step, args):
         GDOptimizer.__init__(self, function, gradient, x_0, step, args)   
         
-    def get_next(self, x, x_previous, y, k):  
-        
+    def get_next(self, x, x_previous, y, k):
         """
         Momentum-Based Frank-Wolfe
         """
-        
         learning_rate = self.step(k, self.function, self.gradient, x, self.args)
 
         momentum = self.args['momentum_k'](k, self.function, self.gradient, x, self.args)
 
         y_k = (1 - momentum) * y + momentum * self.gradient(x, self.args) + \
-                 (1 - momentum) * (self.gradient(x, self.args) - self.gradient(x_previous, self.args))
+              (1 - momentum) * (self.gradient(x, self.args) - self.gradient(x_previous, self.args))
 
         i_min = np.argmin(y_k)
         z_k = np.zeros(len(y_k), dtype=float)
         z_k[i_min] = 1.
 
-        x_next = x + self.args['gamma'](self.args['k']) * (z_k - x)
+        x_next = x + learning_rate * (z_k - x)
 
         return x_next
-    
-def get_grad_tpf_v2(x, args):
-    
+
+
+def get_grad_tpf_jaguar(x, args):
+    np.random.seed(args['seed'])
+    func = args['func']
+    gamma = args['gamma'](args['k'])
+    batch_size = args['batch_size']
+    d = args['d']
+    nabla_f = np.zeros(d, dtype=float)
+    idxs = random.sample(range(d), batch_size)
+    for i in idxs:
+        e = np.zeros(d, dtype=float)
+        e[i] = 1
+
+        nabla_f += (func(x + gamma * e, args) - \
+                    func(x - gamma * e, args)) / (2. * gamma) * e
+
+    return (float(d) / float(batch_size)) * nabla_f
+
+
+def get_grad_tpf_lame_v2(x, args):
     np.random.seed(args['seed'])
     func = args['func']
     gamma = args['gamma'](args['k'])
@@ -219,28 +218,8 @@ def get_grad_tpf_v2(x, args):
 
     return nabla_f
 
-def get_grad_tpf_v3(x, args):
-    
-    np.random.seed(args['seed'])
-    func = args['func']
-    gamma = args['gamma'](args['k'])
-    norm = args['norm']
-    batch_size = args['batch_size']
-    d = args['d']
-    nabla_f = np.zeros(d, dtype=float)
-    idxs = random.sample(range(d), batch_size)
-    for i in idxs:
-        e = np.zeros(d, dtype=float)
-        e[i] = 1
-        
-        nabla_f += (func(x + gamma * e, args) -\
-                    func(x - gamma * e, args)) / (2. * gamma) * e
 
-    return nabla_f
-
-
-def get_grad_tpf(x, args):
-    
+def get_grad_tpf_lame_v1(x, args):
     np.random.seed(args['seed'])
     func = args['func']
     gamma = args['gamma'](args['k'])
@@ -260,7 +239,6 @@ def get_grad_tpf(x, args):
 
 
 def get_grad_opf(x, args):
-    
     np.random.seed(args['seed'])
     func = args['func']
     gamma = args['gamma'](args['k'])
@@ -275,12 +253,11 @@ def get_grad_opf(x, args):
         e = e / np.linalg.norm(e, ord=norm)
         
         nabla_f += d * func(x + gamma * e, args) * e / gamma
-    
 
     return 1./batch_size * nabla_f
 
+
 def get_grad_opf_v3(x, args):
-    
     np.random.seed(args['seed'])
     func = args['func']
     gamma = args['gamma'](args['k'])
@@ -337,7 +314,6 @@ def get_grad_opf_v3(x, args):
 #         errors = np.hstack([errors, error[-1]])
 
 #     return iterations, times, acc_score_list, mse_score_list, w_pred, errors
-
 
 # функция для отрисовки графиков сходимости
 def make_err_plot(iterations_list, errors_list, labels, title, x_label="Iteration number",

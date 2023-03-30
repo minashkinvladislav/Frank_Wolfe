@@ -4,7 +4,9 @@ import random
 from numpy.linalg import norm
 from sklearn.metrics import accuracy_score, mean_squared_error
 from matplotlib import pylab as plt
-
+from tqdm import tqdm
+from tqdm import trange
+import sys
 
 # в args: max steps, eps, criterium, gradient_true, x_true, momentum
 
@@ -54,8 +56,8 @@ class GDOptimizer:
         
         else:
             raise ValueError('Wrong criterium!')
-
-    def projection(self, x):
+            
+    def projection_simplex(self, x):
         """
         Проекция на симплекс
         """
@@ -77,6 +79,50 @@ class GDOptimizer:
             x_next[i] = max(x[i] + lamb, 0)
             
         return x_next
+            
+    
+
+    def projection_l2(self, x):
+        """
+        Проекция на l2-ball
+        """
+        x_norm = np.linalg.norm(x, ord = 2)
+        if x_norm > 1:
+            x_next = x / np.linalg.norm(x, ord = 2)
+        else:
+            x_next = x
+        return x_next
+    
+    def projection_l1(self, x):
+        """
+        Проекция на l1-ball
+        """
+        if np.linalg.norm(x, ord = 1) <= 1:
+            return x
+        else:
+            arr = []
+            left = 1
+            delta = 0
+            target = 0
+            last_i = 0
+            for i in range(self.args['d']):
+                arr.append([np.absolute(x[i]), i])
+            arr = sorted(arr, key = lambda a: abs(a[0]), reverse=True)
+            for i in range(self.args['d']):
+                if (i != self.args['d'] - 1) and (arr[i][0] - arr[i + 1][0] < left):
+                    left = left - (arr[i][0] - arr[i + 1][0])
+                else:
+                    delta = left / (i + 1)
+                    target = arr[i][0] - delta
+                    last_i = i
+                    break
+            for i in range(self.args['d']):
+                if i <= last_i:
+                    arr[i][0] = (arr[i][0] - target) * np.sign(x[arr[i][1]])
+                else:
+                    arr[i][0] = 0
+            arr = sorted(arr, key = lambda a: a[1])
+            return np.asarray([i[0] for i in arr])
 
     def search(self):
         '''
@@ -91,15 +137,22 @@ class GDOptimizer:
         start_time = time.time()
         times = [0]
         errors = []
-        for k in progress(range(self.args['max_steps'])):
+        for k in trange(self.args['max_steps'], file=sys.stdout, colour="green"):
             
             self.args['k'] = k + 1
             
             # шаг градиентного спуска
             x_next = self.get_next(x, x_previous, y, k)
-            
-            if self.args['proj'] is True:
-                x_next = self.projection(x_next)
+
+            if self.args['use_proj'] is True:
+                if self.args['set'] == 'l1_ball':
+                    x_next = self.projection_l1(x_next)
+                elif self.args['set'] == 'l2_ball':
+                    x_next = self.projection_l2(x_next)
+                elif self.args['set'] == 'simplex':
+                    x_next = self.projection_simplex(x_next)
+                else:
+                    raise ValueError("Wrong set!")
             
             x_previous = x
             x = x_next
@@ -125,7 +178,7 @@ class MDOptimizer(GDOptimizer):
         
     def get_next(self, x, x_previous, y, k):
         '''
-        Зеркальный метод для симплекса
+        Зеркальный метод
         '''
         learning_rate = self.step(k, self.function, self.gradient, x, self.args)
         sigma = 0
@@ -149,10 +202,21 @@ class FWOptimizer(GDOptimizer):
         Метод Франка-Вульфа для симплекса
         '''
         learning_rate = self.step(k, self.function, self.gradient, x, self.args)
-
-        i_min = np.argmax(self.gradient(x, self.args))
-        s_k = np.zeros(len(x), dtype=float)
-        s_k[i_min] = 1.
+            
+        s_k = None
+        grad = self.gradient(x_k, self.args)
+        if self.args['set'] == 'l1_ball':
+            i_max = np.argmax(np.abs(grad))
+            s_k = np.zeros(len(x), dtype=float)
+            s_k[i_max] = -1. * float(np.sign(grad[i_max]))
+        elif self.args['set'] == 'l2_ball':
+            s_k = - grad / np.linalg.norm(grad, ord = 2)
+        elif self.args['set'] == 'simplex':
+            i_min = np.argmin(grad)
+            s_k = np.zeros(len(x), dtype=float)
+            s_k[i_min] = 1.
+        else:
+            raise ValueError("Wrong set!")
 
         x_next = x + learning_rate * (s_k - x)
 
@@ -174,17 +238,28 @@ class MBFWOptimizer(GDOptimizer):
         y_k = (1 - momentum) * y + momentum * self.gradient(x, self.args) + \
               (1 - momentum) * (self.gradient(x, self.args) - self.gradient(x_previous, self.args))
 
-        i_min = np.argmin(y_k)
-        z_k = np.zeros(len(y_k), dtype=float)
-        z_k[i_min] = 1.
+        s_k = None
+        grad = y_k
+        if self.args['set'] == 'l1_ball':
+            i_max = np.argmax(np.abs(grad))
+            s_k = np.zeros(len(x), dtype=float)
+            s_k[i_max] = np.sign(grad[i_max])
+        elif self.args['set'] == 'l2_ball':
+            s_k = - grad / np.linalg.norm(grad, ord=2)
+        elif self.args['set'] == 'simplex':
+            i_min = np.argmin(grad)
+            s_k = np.zeros(len(x), dtype=float)
+            s_k[i_min] = 1.
+        else:
+            raise ValueError("Wrong set!")
 
-        x_next = x + learning_rate * (z_k - x)
+        x_next = x + learning_rate * (s_k - x)
+        print(x, s_k)
 
         return x_next
 
 
 def get_grad_tpf_jaguar(x, args):
-    np.random.seed(args['seed'])
     func = args['func']
     gamma = args['gamma'](args['k'])
     batch_size = args['batch_size']
@@ -193,7 +268,7 @@ def get_grad_tpf_jaguar(x, args):
     idxs = random.sample(range(d), batch_size)
     for i in idxs:
         e = np.zeros(d, dtype=float)
-        e[i] = 1
+        e[i] = [-1, 1][random.randrange(2)]
 
         nabla_f += (func(x + gamma * e, args) - \
                     func(x - gamma * e, args)) / (2. * gamma) * e
@@ -202,7 +277,6 @@ def get_grad_tpf_jaguar(x, args):
 
 
 def get_grad_tpf_lame_v2(x, args):
-    np.random.seed(args['seed'])
     func = args['func']
     gamma = args['gamma'](args['k'])
     norm = args['norm']
@@ -220,7 +294,6 @@ def get_grad_tpf_lame_v2(x, args):
 
 
 def get_grad_tpf_lame_v1(x, args):
-    np.random.seed(args['seed'])
     func = args['func']
     gamma = args['gamma'](args['k'])
     norm = args['norm']
@@ -238,8 +311,7 @@ def get_grad_tpf_lame_v1(x, args):
     return 1. /batch_size * nabla_f
 
 
-def get_grad_opf(x, args):
-    np.random.seed(args['seed'])
+def get_grad_opf_lame(x, args):
     func = args['func']
     gamma = args['gamma'](args['k'])
     norm = args['norm']
@@ -257,63 +329,20 @@ def get_grad_opf(x, args):
     return 1./batch_size * nabla_f
 
 
-def get_grad_opf_v3(x, args):
-    np.random.seed(args['seed'])
+def get_grad_opf_jaguar(x, args):
     func = args['func']
     gamma = args['gamma'](args['k'])
-    norm = args['norm']
     batch_size = args['batch_size']
     d = args['d']
     nabla_f = np.zeros(d, dtype=float)
     idxs = random.sample(range(d), batch_size)
     for i in idxs:
         e = np.zeros(d, dtype=float)
-        e[i] = 1
+        e[i] = [-1, 1][random.randrange(2)]
         
         nabla_f += func(x + gamma * e, args) * e / gamma
 
     return nabla_f
-
-
-
-# переписано до сюда
-
-# функция измения accuracy и mse score модели
-# def acc_mse_scores(optimizer, X_test, y_test,
-#                    max_steps = 400, step = 10, f_act=np.round):
-#     """
-#     :param gradient_descent: объект класса GradientDesent
-#     :param X_test: матрица объект-признак для тестовой выборки
-#     :param y_test: тестовые значения целевой переменной
-#     :param max_steps: максимальное кол-во шагов метода
-#     :param step: через сколько итераций нужно измерять метрики
-#     :param f_act: функция активации
-#     :return: итерации, время, accuracy и mse score и то, что возвращает градиентный спуск
-#     """
-
-#     optimizer.max_steps = step
-#     iterations = []
-#     times = []
-#     acc_score_list = []
-#     mse_score_list = []
-#     errors = np.array([])
-#     w_pred = gradient_descent.x_0
-
-#     start_time = time.time()
-#     for iteration in range(0, max_steps + 1, step):
-#         time_now = time.time()
-#         w_pred, error = gradient_descent.search()
-#         gradient_descent.x_0 = w_pred
-
-#         y_pred = f_act(X_test @ w_pred)
-
-#         iterations.append(iteration + step)
-#         times.append(time_now - start_time)
-#         acc_score_list.append(accuracy_score(y_test, y_pred))
-#         mse_score_list.append(mean_squared_error(y_test, y_pred))
-#         errors = np.hstack([errors, error[-1]])
-
-#     return iterations, times, acc_score_list, mse_score_list, w_pred, errors
 
 # функция для отрисовки графиков сходимости
 def make_err_plot(iterations_list, errors_list, labels, title, x_label="Iteration number",
@@ -434,60 +463,3 @@ def generate_A(d, mu, L, seed):
     A = rand_ort.T @ sigma @ rand_ort
 
     return A
-
-# функция для отслеживая процесса
-def progress(sequence, every=None, size=None, name='Items'):
-    from ipywidgets import IntProgress, HTML, VBox
-    from IPython.display import display
-
-    is_iterator = False
-    if size is None:
-        try:
-            size = len(sequence)
-        except TypeError:
-            is_iterator = True
-    if size is not None:
-        if every is None:
-            if size <= 200:
-                every = 1
-            else:
-                every = int(size / 200)     # every 0.5%
-    else:
-        assert every is not None, 'sequence is iterator, set every'
-
-    if is_iterator:
-        progress = IntProgress(min=0, max=1, value=1)
-        progress.bar_style = 'info'
-    else:
-        progress = IntProgress(min=0, max=size, value=0)
-    label = HTML()
-    box = VBox(children=[label, progress])
-    display(box)
-
-    index = 0
-    try:
-        for index, record in enumerate(sequence, 1):
-            if index == 1 or index % every == 0:
-                if is_iterator:
-                    label.value = '{name}: {index} / ?'.format(
-                        name=name,
-                        index=index
-                    )
-                else:
-                    progress.value = index
-                    label.value = u'{name}: {index} / {size}'.format(
-                        name=name,
-                        index=index,
-                        size=size
-                    )
-            yield record
-    except:
-        progress.bar_style = 'danger'
-        raise
-    else:
-        progress.bar_style = 'success'
-        progress.value = index
-        label.value = "{name}: {index}".format(
-            name=name,
-            index=str(index or '?')
-        )

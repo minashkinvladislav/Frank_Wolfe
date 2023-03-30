@@ -97,6 +97,7 @@ class GDOptimizer:
         """
         Проекция на l1-ball
         """
+        '''
         if np.linalg.norm(x, ord = 1) <= 1:
             return x
         else:
@@ -123,6 +124,34 @@ class GDOptimizer:
                     arr[i][0] = 0
             arr = sorted(arr, key = lambda a: a[1])
             return np.asarray([i[0] for i in arr])
+            
+        '''
+        d = len(x)
+        y = [0] * d
+
+        def g(lmbda, x):
+            sum = 0
+            for i in range(d):
+                sum += max(np.abs(x[i]) - lmbda, 0)
+            return sum - 1
+
+        if norm(x, ord=1) <= 1:
+            y = x
+        else:
+            x_sort = np.sort(np.abs(x))
+            m = d - 1
+            for i, lmbda in enumerate(x_sort):
+                if g(lmbda, x) < 0:
+                    m = i
+                    break
+
+            lmbda = 1. / (d - m) * (np.sum(x_sort[m:]) - 1)
+
+            for i in range(d):
+                y[i] = np.sign(x[i]) * max(np.abs(x[i]) - lmbda, 0)
+            y = np.array(y)
+
+        return y
 
     def search(self):
         '''
@@ -204,7 +233,7 @@ class FWOptimizer(GDOptimizer):
         learning_rate = self.step(k, self.function, self.gradient, x, self.args)
             
         s_k = None
-        grad = self.gradient(x_k, self.args)
+        grad = self.gradient(x, self.args)
         if self.args['set'] == 'l1_ball':
             i_max = np.argmax(np.abs(grad))
             s_k = np.zeros(len(x), dtype=float)
@@ -243,7 +272,7 @@ class MBFWOptimizer(GDOptimizer):
         if self.args['set'] == 'l1_ball':
             i_max = np.argmax(np.abs(grad))
             s_k = np.zeros(len(x), dtype=float)
-            s_k[i_max] = np.sign(grad[i_max])
+            s_k[i_max] = -1. * np.sign(grad[i_max])
         elif self.args['set'] == 'l2_ball':
             s_k = - grad / np.linalg.norm(grad, ord=2)
         elif self.args['set'] == 'simplex':
@@ -254,7 +283,7 @@ class MBFWOptimizer(GDOptimizer):
             raise ValueError("Wrong set!")
 
         x_next = x + learning_rate * (s_k - x)
-        print(x, s_k)
+        #print("\n", x, "\n", s_k, "\n", y_k, "\n", learning_rate)
 
         return x_next
 

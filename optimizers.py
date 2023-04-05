@@ -31,7 +31,7 @@ class GDOptimizer:
         '''
         learning_rate = self.step(x, k, self.function, self.gradient, self.args)
 
-        return x - learning_rate * self.gradient(x, self.args)
+        return x - learning_rate * self.gradient(x, self.args), 1
     
     def get_error(self, function, gradient, args, x, x_previous):
         if self.args['criterium'] == 'x_k - x^*':
@@ -167,11 +167,9 @@ class GDOptimizer:
         times = [0]
         errors = []
         for k in trange(self.args['max_steps'], file=sys.stdout, colour="green"):
-            
-            self.args['k'] = k + 1
-            
             # шаг градиентного спуска
-            x_next = self.get_next(x, x_previous, y, k)
+            x_next, iteration = self.get_next(x, x_previous, y, k)
+            self.args['k'] = k + iteration
 
             if self.args['use_proj'] is True:
                 if self.args['set'] == 'l1_ball':
@@ -194,6 +192,8 @@ class GDOptimizer:
 
             # критерий остановки
             if error <= self.args['eps']:
+                break
+            if self.args['k'] > self.args['max_steps']:
                 break
 
         errors = np.array(errors)
@@ -219,7 +219,7 @@ class MDOptimizer(GDOptimizer):
         for i, x_i in enumerate(x):
             x_next[i] = (x_i / sigma) * np.exp(-learning_rate * self.gradient(x, self.args)[i])
         
-        return x_next / np.linalg.norm(x_next, ord = 1)
+        return x_next / np.linalg.norm(x_next, ord=1), 1
 
 
 class FWOptimizer(GDOptimizer):
@@ -249,7 +249,7 @@ class FWOptimizer(GDOptimizer):
 
         x_next = x + learning_rate * (s_k - x)
 
-        return x_next
+        return x_next, 1
 
 
 class MBFWOptimizer(GDOptimizer):
@@ -283,9 +283,52 @@ class MBFWOptimizer(GDOptimizer):
             raise ValueError("Wrong set!")
 
         x_next = x + learning_rate * (s_k - x)
-        #print("\n", x, "\n", s_k, "\n", y_k, "\n", learning_rate)
 
-        return x_next
+        return x_next, 1
+
+
+class FZCGSOptimizer(GDOptimizer):
+    def __init__(self, function, gradient, x_0, step, args):
+        GDOptimizer.__init__(self, function, gradient, x_0, step, args)
+
+    def get_next(self, x, x_previous, y, k):
+        """
+        Faster Zeroth-Order Conditional Gradient Method
+        """
+        def condg(g, u, gamma, eta):
+            t = 1
+            u_t = u
+            s_k = None
+            while True:
+                grad = g + 1./gamma * (u_t - u)
+                if self.args['set'] == 'l1_ball':
+                    i_max = np.argmax(np.abs(grad))
+                    s_k = np.zeros(len(grad), dtype=float)
+                    s_k[i_max] = -1. * np.sign(grad[i_max])
+                elif self.args['set'] == 'l2_ball':
+                    s_k = - grad / np.linalg.norm(grad, ord=2)
+                elif self.args['set'] == 'simplex':
+                    i_min = np.argmin(grad)
+                    s_k = np.zeros(len(grad), dtype=float)
+                    s_k[i_min] = 1.
+                else:
+                    raise ValueError("Wrong set!")
+
+                v = grad @ (u_t - s_k)
+
+                if v <= eta:
+                    return u_t, t
+
+                alpha_t = min(1, ((1./gamma * (u - u_t) - g) @ (s_k - u_t)) / \
+                              (1./gamma * (np.linalg.norm(s_k - u_t, ord=2)**2)))
+                u_t = (1 - alpha_t) * u_t + alpha_t * s_k
+                t += 1
+
+        learning_rate = self.step(k, self.function, self.gradient, x, self.args)
+        eta = self.args['eta'](k, self.function, self.gradient, x, self.args)
+
+        x_next, t = condg(self.gradient(x_previous, self.args), x_previous, learning_rate, eta)
+        return x_next, 1
 
 
 def get_grad_tpf_jaguar(x, args):

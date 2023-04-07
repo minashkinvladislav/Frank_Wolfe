@@ -30,7 +30,16 @@ class GDOptimizer:
         Градиентный спуск
         '''
         learning_rate = self.step(x, k, self.function, self.gradient, self.args)
-
+        #########
+        grad = self.args['grad_curr']
+        if k % (self.args['d'] - 1) == 0:
+            self.args['batch_size'] = self.args['d']
+            grad = self.gradient(x, self.args)
+        else:
+            self.args['batch_size'] = 1
+            grad[self.args['i']] = self.gradient(x, self.args)[self.args['i']]
+        self.args['grad_curr'] = grad
+        ##########
         return x - learning_rate * self.gradient(x, self.args), 1
     
     def get_error(self, function, gradient, args, x, x_previous):
@@ -231,9 +240,18 @@ class FWOptimizer(GDOptimizer):
         Метод Франка-Вульфа для симплекса
         '''
         learning_rate = self.step(k, self.function, self.gradient, x, self.args)
-            
+        
         s_k = None
-        grad = self.gradient(x, self.args)
+        #########
+        grad = self.args['grad_curr']
+        if k % (self.args['d'] - 1) == 0:
+            self.args['batch_size'] = self.args['d']
+            grad = self.gradient(x, self.args)
+        else:
+            self.args['batch_size'] = 1
+            grad[self.args['i']] = self.gradient(x, self.args)[self.args['i']]
+        self.args['grad_curr'] = grad
+        ##########
         if self.args['set'] == 'l1_ball':
             i_max = np.argmax(np.abs(grad))
             s_k = np.zeros(len(x), dtype=float)
@@ -263,9 +281,20 @@ class MBFWOptimizer(GDOptimizer):
         learning_rate = self.step(k, self.function, self.gradient, x, self.args)
 
         momentum = self.args['momentum_k'](k, self.function, self.gradient, x, self.args)
+        ######
+        grad_prev = self.args['grad_curr']
+        if k % (self.args['d'] - 1) == 0:
+            self.args['batch_size'] = self.args['d']
+            grad_next = self.gradient(x, self.args)
+        else:
+            self.args['batch_size'] = 1
+            grad_next = grad_prev
+            grad_next[self.args['i']] = self.gradient(x, self.args)[self.args['i']]
+        self.args['grad_curr'] = grad_next
+        #######
 
-        y_k = (1 - momentum) * y + momentum * self.gradient(x, self.args) + \
-              (1 - momentum) * (self.gradient(x, self.args) - self.gradient(x_previous, self.args))
+        y_k = (1 - momentum) * y + momentum * grad_next + \
+              (1 - momentum) * (grad_next - grad_prev)
 
         s_k = None
         grad = y_k
@@ -341,7 +370,9 @@ def get_grad_tpf_jaguar(x, args):
     for i in idxs:
         e = np.zeros(d, dtype=float)
         e[i] = [-1, 1][random.randrange(2)]
-
+        ########
+        args['i'] = i
+        ########
         nabla_f += (func(x + gamma * e, args) - \
                     func(x - gamma * e, args)) / (2. * gamma) * e
 
@@ -411,7 +442,9 @@ def get_grad_opf_jaguar(x, args):
     for i in idxs:
         e = np.zeros(d, dtype=float)
         e[i] = [-1, 1][random.randrange(2)]
-        
+        ########
+        args['i'] = i
+        ########
         nabla_f += func(x + gamma * e, args) * e / gamma
 
     return nabla_f

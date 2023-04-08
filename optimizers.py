@@ -25,21 +25,22 @@ class GDOptimizer:
         self.x_0 = x_0
         self.step = step
         self.args = args
+        
     def get_next(self, x, x_previous, y, k):
         '''
         Градиентный спуск
         '''
         learning_rate = self.step(x, k, self.function, self.gradient, self.args)
-        #########
-        grad = self.args['grad_curr']
-        if k % (self.args['d'] - 1) == 0:
-            self.args['batch_size'] = self.args['d']
-            grad = self.gradient(x, self.args)
-        else:
-            self.args['batch_size'] = 1
-            grad[self.args['i']] = self.gradient(x, self.args)[self.args['i']]
-        self.args['grad_curr'] = grad
-        ##########
+        # #########
+        # grad = self.args['grad_curr']
+        # if k % (self.args['d'] - 1) == 0:
+        #     self.args['batch_size'] = self.args['d']
+        #     grad = self.gradient(x, self.args)
+        # else:
+        #     self.args['batch_size'] = 1
+        #     grad[self.args['i']] = self.gradient(x, self.args)[self.args['i']]
+        # self.args['grad_curr'] = grad
+        # ##########
         return x - learning_rate * self.gradient(x, self.args), 1
     
     def get_error(self, function, gradient, args, x, x_previous):
@@ -208,6 +209,25 @@ class GDOptimizer:
         errors = np.array(errors)
         times = np.array(times)
         return x, errors, times
+    
+class DGDOptimizer(GDOptimizer):
+    def __init__(self, function, gradient, x_0, step, args):
+        GDOptimizer.__init__(self, function, gradient, x_0, step, args)
+        
+    def get_next(self, x, x_previous, y, k):
+        '''
+        Распредленный градиентынй спуск
+        '''
+        learning_rate = self.step(k, self.function, self.gradient, x, self.args)
+
+        idxs = random.sample(range(args['d']), args['d'] * args['percent'] // 100)
+        Q_grad_f = np.zeros(args['d'])
+        
+        for j in idxs:
+            Q_grad_f[j] = self.gradient[j]
+    
+        return x - learning_rate * Q_grad_f
+
 
 
 class MDOptimizer(GDOptimizer):
@@ -242,16 +262,21 @@ class FWOptimizer(GDOptimizer):
         learning_rate = self.step(k, self.function, self.gradient, x, self.args)
         
         s_k = None
-        #########
-        grad = self.args['grad_curr']
-        if k % (self.args['d'] - 1) == 0:
-            self.args['batch_size'] = self.args['d']
-            grad = self.gradient(x, self.args)
-        else:
+        
+        if self.args['jaguar'] == True:
+            #########
+            grad = self.args['grad_curr']
+            # if k % (self.args['d'] - 1) == 0:
+            #     self.args['batch_size'] = self.args['d']
+            #     grad = self.gradient(x, self.args)
+            # else:
             self.args['batch_size'] = 1
             grad[self.args['i']] = self.gradient(x, self.args)[self.args['i']]
-        self.args['grad_curr'] = grad
-        ##########
+            self.args['grad_curr'] = grad
+            ##########
+        elif self.args['jaguar'] == False:
+            grad = self.gradient(x, self.args)
+            
         if self.args['set'] == 'l1_ball':
             i_max = np.argmax(np.abs(grad))
             s_k = np.zeros(len(x), dtype=float)
@@ -281,17 +306,9 @@ class MBFWOptimizer(GDOptimizer):
         learning_rate = self.step(k, self.function, self.gradient, x, self.args)
 
         momentum = self.args['momentum_k'](k, self.function, self.gradient, x, self.args)
-        ######
-        grad_prev = self.args['grad_curr']
-        if k % (self.args['d'] - 1) == 0:
-            self.args['batch_size'] = self.args['d']
-            grad_next = self.gradient(x, self.args)
-        else:
-            self.args['batch_size'] = 1
-            grad_next = grad_prev
-            grad_next[self.args['i']] = self.gradient(x, self.args)[self.args['i']]
-        self.args['grad_curr'] = grad_next
-        #######
+        
+        grad_next = self.gradient(x, self.args)
+        grad_prev = self.gradient(x_previous, self.args)
 
         y_k = (1 - momentum) * y + momentum * grad_next + \
               (1 - momentum) * (grad_next - grad_prev)

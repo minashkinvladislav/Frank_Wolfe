@@ -31,17 +31,21 @@ class GDOptimizer:
         Градиентный спуск
         '''
         learning_rate = self.step(x, k, self.function, self.gradient, self.args)
-        # #########
-        # grad = self.args['grad_curr']
-        # if k % (self.args['d'] - 1) == 0:
-        #     self.args['batch_size'] = self.args['d']
-        #     grad = self.gradient(x, self.args)
-        # else:
-        #     self.args['batch_size'] = 1
-        #     grad[self.args['i']] = self.gradient(x, self.args)[self.args['i']]
-        # self.args['grad_curr'] = grad
-        # ##########
-        return x - learning_rate * self.gradient(x, self.args), 1
+        if self.args['jaguar'] is True:
+            #########
+            grad = self.args['grad_curr']
+            if random.random() < self.args['prob']:
+                self.args['batch_size'] = self.args['d']
+                grad = self.gradient(x, self.args)
+            else:
+                self.args['batch_size'] = 1
+                grad[self.args['i']] = self.gradient(x, self.args)[self.args['i']]
+            self.args['grad_curr'] = grad
+            ##########
+        else:
+            grad = self.gradient(x, self.args)
+
+        return x - learning_rate * grad, 1
     
     def get_error(self, function, gradient, args, x, x_previous):
         if self.args['criterium'] == 'x_k - x^*':
@@ -107,35 +111,6 @@ class GDOptimizer:
         """
         Проекция на l1-ball
         """
-        '''
-        if np.linalg.norm(x, ord = 1) <= 1:
-            return x
-        else:
-            arr = []
-            left = 1
-            delta = 0
-            target = 0
-            last_i = 0
-            for i in range(self.args['d']):
-                arr.append([np.absolute(x[i]), i])
-            arr = sorted(arr, key = lambda a: abs(a[0]), reverse=True)
-            for i in range(self.args['d']):
-                if (i != self.args['d'] - 1) and (arr[i][0] - arr[i + 1][0] < left):
-                    left = left - (arr[i][0] - arr[i + 1][0])
-                else:
-                    delta = left / (i + 1)
-                    target = arr[i][0] - delta
-                    last_i = i
-                    break
-            for i in range(self.args['d']):
-                if i <= last_i:
-                    arr[i][0] = (arr[i][0] - target) * np.sign(x[arr[i][1]])
-                else:
-                    arr[i][0] = 0
-            arr = sorted(arr, key = lambda a: a[1])
-            return np.asarray([i[0] for i in arr])
-            
-        '''
         d = len(x)
         y = [0] * d
 
@@ -197,6 +172,7 @@ class GDOptimizer:
             # добавление новой ошибки в вектор errors
             error = self.get_error(self.function, self.gradient, self.args, x, x_previous)
             errors.append(error)
+            self.args['oracle_calls'].append(self.args['oracle_counter'])
             time_now = time.time()
             times.append(time_now - start_time)
 
@@ -227,7 +203,6 @@ class DGDOptimizer(GDOptimizer):
             Q_grad_f[j] = self.gradient[j]
     
         return x - learning_rate * Q_grad_f
-
 
 
 class MDOptimizer(GDOptimizer):
@@ -263,18 +238,18 @@ class FWOptimizer(GDOptimizer):
         
         s_k = None
         
-        if self.args['jaguar'] == True:
+        if self.args['jaguar'] is True:
             #########
             grad = self.args['grad_curr']
-            # if k % (self.args['d'] - 1) == 0:
-            #     self.args['batch_size'] = self.args['d']
-            #     grad = self.gradient(x, self.args)
-            # else:
-            self.args['batch_size'] = 1
-            grad[self.args['i']] = self.gradient(x, self.args)[self.args['i']]
+            if random.random() < self.args['prob']:
+                self.args['batch_size'] = self.args['d']
+                grad = self.gradient(x, self.args)
+            else:
+                self.args['batch_size'] = 1
+                grad[self.args['i']] = self.gradient(x, self.args)[self.args['i']]
             self.args['grad_curr'] = grad
             ##########
-        elif self.args['jaguar'] == False:
+        else:
             grad = self.gradient(x, self.args)
             
         if self.args['set'] == 'l1_ball':
@@ -306,9 +281,23 @@ class MBFWOptimizer(GDOptimizer):
         learning_rate = self.step(k, self.function, self.gradient, x, self.args)
 
         momentum = self.args['momentum_k'](k, self.function, self.gradient, x, self.args)
-        
-        grad_next = self.gradient(x, self.args)
-        grad_prev = self.gradient(x_previous, self.args)
+
+        if self.args['jaguar'] is True:
+            #########
+            grad = self.args['grad_curr']
+            grad_prev = self.args['grad_curr']
+            if random.random() < self.args['prob']:
+                self.args['batch_size'] = self.args['d']
+                grad = self.gradient(x, self.args)
+            else:
+                self.args['batch_size'] = 1
+                grad[self.args['i']] = self.gradient(x, self.args)[self.args['i']]
+            self.args['grad_curr'] = grad
+            ##########
+            grad_next = grad
+        else:
+            grad_next = self.gradient(x, self.args)
+            grad_prev = self.gradient(x_previous, self.args)
 
         y_k = (1 - momentum) * y + momentum * grad_next + \
               (1 - momentum) * (grad_next - grad_prev)
@@ -372,8 +361,21 @@ class FZCGSOptimizer(GDOptimizer):
 
         learning_rate = self.step(k, self.function, self.gradient, x, self.args)
         eta = self.args['eta'](k, self.function, self.gradient, x, self.args)
+        if self.args['jaguar'] is True:
+            #########
+            grad = self.args['grad_curr']
+            if random.random() < self.args['prob']:
+                self.args['batch_size'] = self.args['d']
+                grad = self.gradient(x, self.args)
+            else:
+                self.args['batch_size'] = 1
+                grad[self.args['i']] = self.gradient(x, self.args)[self.args['i']]
+            self.args['grad_curr'] = grad
+            ##########
+        else:
+            grad = self.gradient(x, self.args)
 
-        x_next, t = condg(self.gradient(x_previous, self.args), x_previous, learning_rate, eta)
+        x_next, t = condg(grad, x_previous, learning_rate, eta)
         return x_next, 1
 
 
@@ -393,6 +395,8 @@ def get_grad_tpf_jaguar(x, args):
         nabla_f += (func(x + gamma * e, args) - \
                     func(x - gamma * e, args)) / (2. * gamma) * e
 
+        args['oracle_counter'] += 2
+
     return (float(d) / float(batch_size)) * nabla_f
 
 
@@ -409,6 +413,8 @@ def get_grad_tpf_lame_v2(x, args):
         
         nabla_f += (func(x + gamma * e, args) -\
                     func(x - gamma * e, args)) / (2. * gamma) * e
+
+        args['oracle_counter'] += 2
 
     return nabla_f
 
@@ -428,6 +434,8 @@ def get_grad_tpf_lame_v1(x, args):
         
         nabla_f += (func(x + gamma * e, args) - func(x - gamma * e, args)) / (2. * gamma) * e
 
+        args['oracle_counter'] += 2
+
     return 1. /batch_size * nabla_f
 
 
@@ -445,6 +453,8 @@ def get_grad_opf_lame(x, args):
         e = e / np.linalg.norm(e, ord=norm)
         
         nabla_f += d * func(x + gamma * e, args) * e / gamma
+
+        args['oracle_counter'] += 1
 
     return 1./batch_size * nabla_f
 
@@ -464,7 +474,10 @@ def get_grad_opf_jaguar(x, args):
         ########
         nabla_f += func(x + gamma * e, args) * e / gamma
 
+        args['oracle_counter'] += 1
+
     return nabla_f
+
 
 # функция для отрисовки графиков сходимости
 def make_err_plot(iterations_list, errors_list, labels, title, x_label="Iteration number",

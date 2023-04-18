@@ -85,10 +85,10 @@ class GDOptimizer:
             if x_sort[i] + 1 / (i + 1) * (1 - summa) > 0:
                 rho = i
                 summa_ans = summa
-                
+
         lamb = 1 / (rho + 1) * (1 - summa_ans)
         x_next = np.zeros(len(x_sort))
-        
+
         for i in range(len(x_next)):
             x_next[i] = max(x[i] + lamb, 0)
             
@@ -295,6 +295,17 @@ class MBFWOptimizer(GDOptimizer):
             self.args['grad_curr'] = grad
             ##########
             grad_next = grad
+        elif self.args['sega'] is True:
+            self.args['batch_size'] = 1
+            grad_prev = np.copy(self.args['grad_curr'])
+            e_i = np.zeros(self.args['d'])
+            i = self.args['i']
+            e_i[i] = 1.
+            h_next = self.args['h'] + (self.gradient(x, self.args)[i] - self.args['h'][i]) * e_i
+            grad = self.args['d'] * (self.gradient(x, self.args)[i] - self.args['h'][i]) * e_i + self.args['h']
+            self.args['grad_curr'] = grad
+            grad_next = np.copy(grad)
+            self.args['h'] = h_next
         else:
             grad_next = self.gradient(x, self.args)
             grad_prev = self.gradient(x_previous, self.args)

@@ -42,6 +42,22 @@ class GDOptimizer:
                 grad[self.args['i']] = self.gradient(x, self.args)[self.args['i']]
             self.args['grad_curr'] = grad
             ##########
+        elif self.args['sega'] is True:
+            if random.random() < self.args['prob']:
+                self.args['batch_size'] = self.args['d']
+                grad_next = self.gradient(x, self.args)
+                self.args['h'] = np.copy(grad_next)
+            else:
+                self.args['batch_size'] = 1
+                e_i = np.zeros(self.args['d'])
+                grad = self.gradient(x, self.args)
+                i = self.args['i']
+                e_i[i] = 1.
+                h_next = self.args['h'] + (grad[i] - self.args['h'][i]) * e_i
+                grad_next = self.args['d'] * (grad[i] - self.args['h'][i]) * e_i + self.args['h']
+                self.args['grad_curr'] = np.copy(grad_next)
+                self.args['h'] = np.copy(h_next)
+            grad = grad_next
         else:
             grad = self.gradient(x, self.args)
 
@@ -249,6 +265,22 @@ class FWOptimizer(GDOptimizer):
                 grad[self.args['i']] = self.gradient(x, self.args)[self.args['i']]
             self.args['grad_curr'] = grad
             ##########
+        elif self.args['sega'] is True:
+            if random.random() < self.args['prob']:
+                self.args['batch_size'] = self.args['d']
+                grad_next = self.gradient(x, self.args)
+                self.args['h'] = np.copy(grad_next)
+            else:
+                self.args['batch_size'] = 1
+                e_i = np.zeros(self.args['d'])
+                grad = self.gradient(x, self.args)
+                i = self.args['i']
+                e_i[i] = 1.
+                h_next = self.args['h'] + (grad[i] - self.args['h'][i]) * e_i
+                grad_next = self.args['d'] * (grad[i] - self.args['h'][i]) * e_i + self.args['h']
+                self.args['grad_curr'] = np.copy(grad_next)
+                self.args['h'] = np.copy(h_next)
+            grad = grad_next
         else:
             grad = self.gradient(x, self.args)
             
@@ -296,16 +328,22 @@ class MBFWOptimizer(GDOptimizer):
             ##########
             grad_next = grad
         elif self.args['sega'] is True:
-            self.args['batch_size'] = 1
-            grad_prev = np.copy(self.args['grad_curr'])
-            e_i = np.zeros(self.args['d'])
-            i = self.args['i']
-            e_i[i] = 1.
-            h_next = self.args['h'] + (self.gradient(x, self.args)[i] - self.args['h'][i]) * e_i
-            grad = self.args['d'] * (self.gradient(x, self.args)[i] - self.args['h'][i]) * e_i + self.args['h']
-            self.args['grad_curr'] = grad
-            grad_next = np.copy(grad)
-            self.args['h'] = h_next
+            if random.random() < self.args['prob']:
+                grad_prev = np.copy(self.args['grad_curr'])
+                self.args['batch_size'] = self.args['d']
+                grad_next = self.gradient(x, self.args)
+                self.args['h'] = np.copy(grad_next)
+            else:
+                self.args['batch_size'] = 1
+                grad_prev = np.copy(self.args['grad_curr'])
+                e_i = np.zeros(self.args['d'])
+                grad = self.gradient(x, self.args)
+                i = self.args['i']
+                e_i[i] = 1.
+                h_next = self.args['h'] + (grad[i] - self.args['h'][i]) * e_i
+                grad_next = self.args['d'] * (grad[i] - self.args['h'][i]) * e_i + self.args['h']
+                self.args['grad_curr'] = np.copy(grad_next)
+                self.args['h'] = np.copy(h_next)
         else:
             grad_next = self.gradient(x, self.args)
             grad_prev = self.gradient(x_previous, self.args)
@@ -492,7 +530,8 @@ def get_grad_opf_jaguar(x, args):
 
 # функция для отрисовки графиков сходимости
 def make_err_plot(iterations_list, errors_list, labels, title, x_label="Iteration number",
-                  y_label="The value of the criterion", markers=["^"]*100, markersize=7):
+                  y_label="The value of the criterion", markers=["^"]*100, markersize=7,
+                  name=None):
     """
     :param iterations_list: список из итераций для кадого вектора ошибок
     :param errors_list: список векторов ошибок
@@ -524,6 +563,9 @@ def make_err_plot(iterations_list, errors_list, labels, title, x_label="Iteratio
     #plt.xlim(-50, 1050)
     plt.grid()
     plt.legend(fontsize = 15)
+    plt.tight_layout()
+    if name is not None:
+        plt.savefig(f"figures/{name}.png")
     plt.show()
 
 # функция для отрисовки графиков метрик

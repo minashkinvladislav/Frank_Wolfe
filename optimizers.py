@@ -26,7 +26,7 @@ class GDOptimizer:
         self.step = step
         self.args = args
         
-    def get_next(self, x, x_previous, y, k):
+    def get_next(self, x, x_previous, k):
         '''
         Градиентный спуск
         '''
@@ -169,7 +169,7 @@ class GDOptimizer:
         errors = []
         for k in trange(self.args['max_steps'], file=sys.stdout, colour="green"):
             # шаг градиентного спуска
-            x_next, iteration = self.get_next(x, x_previous, y, k)
+            x_next, iteration = self.get_next(x, x_previous, k)
             self.args['k'] = k + iteration
 
             if self.args['use_proj'] is True:
@@ -225,7 +225,7 @@ class MDOptimizer(GDOptimizer):
     def __init__(self, function, gradient, x_0, step, args):
         GDOptimizer.__init__(self, function, gradient, x_0, step, args)
         
-    def get_next(self, x, x_previous, y, k):
+    def get_next(self, x, x_previous, k):
         '''
         Зеркальный метод
         '''
@@ -246,7 +246,7 @@ class FWOptimizer(GDOptimizer):
     def __init__(self, function, gradient, x_0, step, args):
         GDOptimizer.__init__(self, function, gradient, x_0, step, args)
         
-    def get_next(self, x, x_previous, y, k):
+    def get_next(self, x, x_previous, k):
         '''
         Метод Франка-Вульфа для симплекса
         '''
@@ -306,7 +306,7 @@ class MBFWOptimizer(GDOptimizer):
     def __init__(self, function, gradient, x_0, step, args):
         GDOptimizer.__init__(self, function, gradient, x_0, step, args)   
         
-    def get_next(self, x, x_previous, y, k):
+    def get_next(self, x, x_previous, k):
         """
         Momentum-Based Frank-Wolfe
         """
@@ -348,8 +348,10 @@ class MBFWOptimizer(GDOptimizer):
             grad_next = self.gradient(x, self.args)
             grad_prev = self.gradient(x_previous, self.args)
 
+        y = self.args['y_k']
         y_k = (1 - momentum) * y + momentum * grad_next + \
               (1 - momentum) * (grad_next - grad_prev)
+        self.args['y_k'] = y_k 
 
         s_k = None
         grad = y_k
@@ -375,7 +377,7 @@ class FZCGSOptimizer(GDOptimizer):
     def __init__(self, function, gradient, x_0, step, args):
         GDOptimizer.__init__(self, function, gradient, x_0, step, args)
 
-    def get_next(self, x, x_previous, y, k):
+    def get_next(self, x, x_previous, k):
         """
         Faster Zeroth-Order Conditional Gradient Method
         """

@@ -1,0 +1,353 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[main=english,russian]{babel}	
+\usepackage{arxiv}
+
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{lipsum}         % Can be removed after putting your text content
+\usepackage{graphicx}
+\usepackage{natbib}
+\usepackage{doi}
+\usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\newtheorem{theorem}{Theorem}
+\newtheorem*{theorem-non}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem*{lemma-non}{Lemma}
+\newtheorem{assumption}{Assumption}
+
+\title{One-point and two-point feedback for Frank-Wolfe algorithm}
+
+%\date{September 9, 1985}	% Here you can change the date presented in the paper title
+%\date{} 					% Or removing it
+
+\author{
+    Andrey S. Veprikov\\
+	Department of Intelligent Systems\\
+	MIPT\\
+	Dolgoprudny, Russia \\
+	\texttt{veprikov.as@phystech.edu} \\
+	\And
+    Alexander I. Bogdanov\\
+	Department of Intelligent Systems\\
+	MIPT\\
+	Dolgoprudny, Russia \\
+	\texttt{bogdanov.ai@phystech.edu} \\
+    \And
+    Vladislav M. Minashkin\\
+	Department of Intelligent Systems\\
+	MIPT\\
+	Dolgoprudny, Russia \\
+	\texttt{minashkin.vm@phystech.edu} \\
+}
+
+\date{}
+
+% Uncomment to override  the `A preprint' in the header
+%\renewcommand{\headeright}{Technical Report}
+%\renewcommand{\undertitle}{Technical Report}
+\renewcommand{\shorttitle}{One-point and two-point feedback for Frank-Wolfe algorithm}
+\renewcommand{\arraystretch}{2.2}
+
+%%% Add PDF metadata to help others organize their library
+%%% Once the PDF is generated, you can check the metadata with
+%%% $ pdfinfo template.pdf
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+
+    % In this paper we consider convex non-smooth stochastic minimization problem with constraints. We provide a gradient-free momentum-based Frank-Wolfe algorithm with one-point and two-point feedback. 
+
+    In this paper, we address the challenges of solving a convex, non-smooth stochastic minimization problem subject to constraints, which often arises in modern machine learning applications. We propose a gradient-free momentum-based Frank-Wolfe algorithm that incorporates one-point and two-point feedback mechanisms, which have been shown to significantly improve convergence speed and robustness to noise, especially in the presence of large-scale and high-dimensional data. Specifically, our algorithm leverages the momentum term to accelerate convergence and overcome oscillations, while the feedback mechanism helps to adaptively adjust the step size, improving the overall performance. We provide theoretical analysis and numerical experiments to demonstrate the effectiveness and efficiency of our algorithm on various optimization problems, comparing it with existing algorithms such as the classical Frank-Wolfe and stochastic gradient descent methods.
+
+\end{abstract}
+
+
+% keywords can be removed
+\keywords{Gradient-free methods \and Zeroth-order methods \and Stochastic optimization \and Frank-Wolfe algorithms \and Momentum-based method \and Stochastic optimization}
+
+
+\section{Introduction}
+
+    Stochastic optimization is a fundamental problem that is encountered in a wide range of engineering applications, including machine learning, control theory, communication, etc. The goal is to minimize an objective function subject to general convex constraints.
+
+    In this paper, we consider a stochastic version of the method without projections, namely the momentum-based Frank-Wolf algorithm, with access to a zeroth-order oracle.
+
+    This paper also proposes an approach that allows you to use batches of arbitrary size, up to a single one. This will allow to use this method more effectively on weaker machines, allowing not to resort to distributed systems for computations. 
+
+    We consider convex stochastic minimization problem
+    \begin{equation}
+        \label{main_problem}
+        \underset{x \in Q}{\min} \quad F(x) := 
+        \mathbb{E}_{\xi}\left[f(x, \xi)\right]
+    \end{equation}
+
+    where $Q \subset \mathbb{R}^d$ is a convex and compact feasible set and $f(x, \xi)$ is stochastic function involving target variable $x \in \mathbb{R}^d$ and randomly distributed variable $\xi \sim D$. In this problem we consider that access to the gradient is very difficult or there is no access at all, so we can use only zeroth-order oracle of the function $f(\cdot, \xi)$. Specifically, we assume that on each step of our algorithms we can take only one or two points.
+
+\section{Related work} \label{Related_work}
+
+    In these section we will show related work in context of gradient approximation (one and two points feedback), zero-oracle methods and Frank-Wolfe algorithm.
+
+    \subsection{Gradient approximation}\label{Gradient_approximation}
+    
+        There are a lot of papers about how to approximate the gradient \cite{ermoliev1976methods, nemirovskij1983problem, agarwal2010optimal, agarwal2011stochastic}. The most popular methods are:
+    
+        \begin{enumerate}
+            \item \textbf{Approximation of the gradient through finite differences (two-point feedback)} \cite{shamir2017optimal, Randomized_gradient_free_methods_in_convex_optimization}. 
+    
+            In this papers authors used randomized smoothing for the non-smooth objective 
+    
+            \begin{equation*}
+                \label{f_gamma}
+                f_{\gamma}(x, \xi) = \mathbb{E}_u\left[f(x + \gamma u, \xi)\right]
+            \end{equation*}
+    
+            where $u \sim RB^d_2(1)$, i.e., $u$ is random vector uniformly distributed on a unit euclidean ball $B_2^d(1)$.
+            
+            True gradient was estimated by:
+    
+            \begin{equation}
+                \label{nabla(f)_gamma_tpf}
+                \nabla f_{\gamma}(x, \xi, e) = d \dfrac{f(x+\gamma e, \xi) - f(x - \gamma e, \xi)}{2 \gamma} e
+            \end{equation}
+    
+            where $e \sim RB^d_2(1)$.
+    
+            So they got these results:
+    
+            \begin{theorem} \label{th_1}
+                For all $x, y \in Q$ and $\xi \sim D$ fulfilled what
+    
+                \begin{enumerate}
+                    \item[$\bullet$] $f(x, \xi)$ is bounded by $f_{\gamma}(x, \xi)$:
+                    
+                    \begin{equation}
+                        \label{prop_f_g_1_tpf}
+                        f(x, \xi) \leq f_{\gamma}(x, \xi) \leq f(x) + \gamma M_2
+                    \end{equation}
+    
+                    where $M_2$ is constant satisfying $\mathbb{E_\xi}\left\|\nabla f_{\gamma}(x, \xi)\right\|_2^2 \leq M_2^2$ for all $x \in Q$.
+    
+                    \item[$\bullet$] $f(x, \xi)$ has $L = \frac{\sqrt{d}M}{\gamma}$-Lipschitz gradient:
+    
+                    \begin{equation}
+                        \label{prop_f_g_2_tpf}
+                        \left\|\nabla f_{\gamma}(y, \xi) - \nabla f_{\gamma}(x, \xi)\right\|_q \leq L \left\|y - x\right\|_p,
+                    \end{equation}
+    
+                    where $1/p + 1/q = 1$
+    
+                    \item[$\bullet$] $\nabla f_{\gamma}(x, \xi, e)$ is an unbiased approximation for $\nabla f_{\gamma}(x, \xi, e)$:
+                    
+                    \begin{equation*}
+                        \mathbb{E}_{e, \xi}\left[\nabla f_{\gamma}(x, e, \xi)\right] = \nabla f_{\gamma}(x)
+                    \end{equation*}
+    
+                    \item[$\bullet$] $\nabla f_{\gamma}(x, \xi, e)$ has bounded variance:
+                    
+                    \begin{equation}
+                        \label{prop_nabla_f_g_2_tpf}
+                        \mathbb{E}_e\left[\left\| \nabla f_{\gamma}(x, e)\right\|_q^2\right] \leq \sqrt{2} \min\{q, \ln d\} d^{2/q}M_2^2
+                    \end{equation}
+                \end{enumerate}
+            \end{theorem}
+    
+            All proofs you can find in \cite{Randomized_gradient_free_methods_in_convex_optimization}
+    
+            Other authors \cite{nesterov2017random, nemirovskij1983problem} used slightly different approximation of gradient:
+    
+            \begin{equation}
+                \label{other_aprox_two_point}
+                \nabla f_{\gamma}(x, \xi, e) = d \dfrac{f(x+\gamma e, \xi) - f(x, \xi)}{\gamma} e
+            \end{equation}
+    
+            So they got this result:
+    
+            \begin{equation*}
+                \mathbb{E}_e\left[\left\| \nabla f_{\gamma}(x, e, \xi) \right\|_q^2\right] \leq M_2^2 (d+4)^2
+            \end{equation*}
+    
+            All proofs you can find in \cite{nemirovskij1983problem}. We wouldn't use this approximation in this paper.
+    
+            \item \textbf{Approximation of the gradient through finite differences (one-point feedback)} \cite{gasnikov2017stochastic, nemirovskij1983problem}.
+    
+            If the two-point feedback \eqref{f_gamma}, \eqref{other_aprox_two_point} is unavailable, we can approximate gradient by using the unbiased estimate \cite{Randomized_gradient_free_methods_in_convex_optimization, gasnikov2017stochastic}:
+            
+            \begin{equation}
+                \label{nabla(f)_gamma_opf}
+                \nabla f_{\gamma}(x, \xi, e) = d \dfrac{f(x+\gamma e, \xi)}{\gamma}e
+            \end{equation}
+    
+            This approximation is similar to \eqref{nabla(f)_gamma_tpf} and has related properties:
+    
+            \begin{theorem} \label{th_2}
+                $\nabla f_{\gamma}(x, \xi, e)$ has bounded variance:
+                \begin{equation}
+                    \label{prop_nabla_f_g_opf}
+                    \mathbb{E}_e\left[\left\| \nabla f_{\gamma}(x, e, \xi) \right\|_q^2\right] \leq 
+                    \left\{\begin{array}{l}
+                         \dfrac{(q-1)d^{1 + 2/q}G^2}{\gamma^2}, \quad q \in \left[2, 2 \ln d\right] \\
+                         \\
+                         \dfrac{4d(\ln d)G^2}{\gamma^2}, \quad q \in (2 \ln d, +\infty)
+                    \end{array}\right.
+                \end{equation}
+    
+                where $\gamma = \frac{\varepsilon}{2 M_2}$ ($\varepsilon$ is accuracy of solving problem \eqref{main_problem}) and $G$ is such that $\mathbb{E}_{\xi}\left[|f(x, \xi)|^2\right] \leq G^2$ for all $x \in Q$.
+            \end{theorem}
+    
+            All proofs you can find in \cite{gasnikov2017stochastic}.
+          
+        \end{enumerate}
+
+    \subsection{Zero-order algorithms}\label{Zero_order_methods}
+
+        The most popular method to solve problem \eqref{main_problem} is to take some first-order method (i.e. it uses true gradient of the function) and approximate it with the formulas like \eqref{nabla(f)_gamma_tpf} and \eqref{nabla(f)_gamma_opf} \cite{Randomized_gradient_free_methods_in_convex_optimization, akhtar2022zeroth, nesterov2017random, gasnikov2017stochastic}.
+
+        But there are also algorithms that do not use this method, for example COBYLA \cite{powell1994direct} and Bayesian optimization \cite{hernandez2016general}.
+
+        
+
+    \subsection{Frank-Wolfe algorithms} \label{FW_algorithms}
+
+        This algorithm solves problem \eqref{main_problem} under assumptions that
+        
+        \begin{enumerate}
+            \item $Q$ is convex and compact set with diameter $D$
+
+            \item Function $f(x, \xi)$ are $L$-smooth for all $x \in Q$ and $\xi \sim D$
+
+            \item The variance of the stochastic gradient $\nabla f(x, \xi)$ is bounded under $\sigma^2$
+        \end{enumerate}
+
+        The main idea of this algorithm is that we don't calculate projection on a set $Q$ on every step of gradient decent (because it's often difficult), but calculate
+
+        \begin{equation*}
+            \arg\underset{s \in Q}{\min} \left<s, \nabla f(x^k)\right>
+        \end{equation*}
+
+        The simplest Frank-Wolfe algorithm can be described as follows: 
+
+        \begin{algorithm}
+            \caption{Simplest Frank-Wolfe Algorithm}\label{simple_FW}
+            \begin{algorithmic}
+                \Ensure $x^0 \in Q$
+                \For{k = 0, ..., K}
+                    \State $s \gets \arg\underset{s \in Q}{\min} \left<s, \nabla f(x^k)\right>$
+
+                    \State $x^{k+1} \gets (1 - \gamma)x^k + \gamma s, \quad \text{ for } \gamma = \frac{2}{k+2}$
+                \EndFor
+            \end{algorithmic}
+        \end{algorithm}
+
+        There are a lot of modifications for this method \cite{hou2022distributed, sahu2019towards, akhtar2022zeroth} in this paper we will use momentum-based method from \cite{hou2022distributed}.
+
+\section{Main results}
+
+    We begin with stating the assumptions required for the analysis:
+
+    \begin{assumption}\label{ass1}
+        $f(x, \xi)$ is Lipschitz continuous in $p \in [1, 2]$ norm:
+        \begin{equation}
+            \label{Lc}
+            \exists M > 0:~ \forall x, y \in Q ~\hookrightarrow~ |f(x, \xi) - f(y, \xi)| \leq M \cdot \|x - y\|_p
+        \end{equation}
+
+        If $p=2$ when we will denote constant $M$ as $M_2$.
+    \end{assumption}
+
+    \begin{assumption}\label{ass2}
+        The compact set $Q$ is compact, i.e. 
+
+        \begin{equation}
+            \label{compact Q}
+            \exists D > 0 :~ \forall x, y \in Q ~\hookrightarrow~ \|x-y\| \leq D
+        \end{equation}
+    \end{assumption}
+
+        We use modification of FW algorithm with using momentum.
+    
+        \begin{algorithm}
+            \caption{Momentum-based Frank-Wolfe Algorithm}\label{MBFW algorithm}
+            \begin{algorithmic}
+                \Require $x_0, x_1 \in Q$, $y_0$, parameters $\{\eta_k, \gamma_k\}$
+                \For {k = 1, 2, ... , K}\\
+                    \State $y^k \gets (1-\eta) y_{k-1} + 
+                    \eta_k \nabla f(x^k, \xi) + (1-\eta_k)(\nabla f(x^k, \xi) - \nabla f(x^{k-1}, \xi))$\\
+
+                    \State $s \gets \arg\underset{s \in Q}{\min} \left<s, \nabla f(x^k)\right>$\\
+
+                    \State $x^{k+1} \gets (1 - \gamma)x^k + \gamma s, \quad \text{ for } \gamma = \frac{2}{k+2}$
+                \EndFor
+            \end{algorithmic}
+        \end{algorithm}
+
+        This algorithm is similar to \cite{akhtar2022zeroth}.
+    
+\section{Experiments}
+
+    In our experiments\footnotemark we will apply our zero-order method from Subsection \ref{zo method} to Momentum-Based Frank-Wolfe algorithm from Subsection \ref{mbfw}, Frank-Wolfe algorithm from \cite{jaggi2013revisiting}, Stochastic Mirror Descent algorithm \cite{d2021stochastic} and Gradient Descend with Euclidean projection.
+
+    \footnotetext{\href{https://github.com/minashkinvladislav/Frank_Wolfe
+    }{GitHub}}
+
+    \begin{table}[!ht]
+        \centering
+        \begin{tabular}{|c|c|c|}
+
+        \hline
+            Algorithm & $N(L, \sigma^2, \varepsilon)$ & $T(L, \sigma^2, \varepsilon)$\\ \hline 
+            
+            MBFW \cite{akhtar2022zeroth} & $\mathcal{O}\left(\left[\frac{8 \sqrt{3} D + 41 L D^2}{\varepsilon}\right]^2\right)$ & $\mathcal{O}\left(\left[\frac{8 \sqrt{3} D + 41 L D^2}{\varepsilon}\right]^2\right)$\\ [0.1cm]\hline
+
+            FW \cite{frank1956algorithm} & $\mathcal{O}\left(\frac{LD^2}{\varepsilon}\right)$ & $M_s\footnotemark \cdot \mathcal{O}\left(\frac{LD^2}{\varepsilon} \right)$\\ [0.2cm]\hline 
+            
+            SMD \cite{d2021stochastic} & $\mathcal{O}\left(\frac{L(B_{\psi}\footnotemark (x^*, x_1) + \sigma^2)}{\varepsilon}\right)$ & $\mathcal{O}\left(\frac{L(B_{\psi}(x^*, x_1) + \sigma^2)}{\varepsilon}
+            \right)$\\ [0.15cm] \hline
+
+            Projection \cite{frei2007geometry} & $\mathcal{O}\left(\frac{2 L (f(x^0) - f(x^*))}{\varepsilon}\right)$ & $P_s\footnotemark \cdot \mathcal{O}\left(\frac{2 L (f(x^0) - f(x^*))}{\varepsilon}\right)$\\ [0.2cm] \hline 
+        
+        \end{tabular}\\
+        
+        \caption{$N$ and $L$ for considered algorithms}
+    \end{table}
+
+    \footnotetext{Number of oracle calls at each step during argmin computing.}
+    \footnotetext{Bregman divergence with respect to $\psi$}
+    \footnotetext{Number of oracle calls at each step during projection computing.}
+
+    
+
+    \subsection{Quadratic function}
+        In this experiment we consider
+
+        \begin{equation}
+            \label{f Q ex1}
+            f(x, \xi) = \left<Ax, x\right> + \xi \quad \text{ and } \quad Q = \Delta_d,
+        \end{equation}
+
+        where $A \in S^d_{++}$, $\xi \sim \mathcal{N}(0, \sigma^2)$ and $\Delta_d$ - is $d$-dimensional probabilistic simplex.
+
+        We will sample $e$ from \eqref{nabla(f)_gamma_tpf} and \eqref{nabla(f)_gamma_opf} randomly from $B_1^{\|\cdot\|_1}$ and $B_1^{\|\cdot\|_2}$, fix batch size: $B = 1$. And use gap-convergence criterion:
+
+        \begin{equation}
+            \label{gap}
+            \text{gap}(x^k) = \max_{y \in \triangle_d} \langle \nabla f(x^k), x^k - y \rangle,
+        \end{equation}
+
+        
+\bibliographystyle{plain}
+\bibliography{refs}  
+
+
+\end{document}

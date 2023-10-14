@@ -7,9 +7,9 @@ import sys
 
 
 class GDOptimizer:
-    def __init__(self, x_0, get_grad, step, function, gamma=lambda k: 1 / (k + 1), max_oracle_calls=10000,
+    def __init__(self, x_0, get_grad, step, function, gamma=lambda k: 1, max_oracle_calls=10000,
                  set_name=None, norma=2, criterion='f(x_k) - f(x^*)', use_jaguar=False, eps=1e-5, x_sol=None,
-                 gradient_true=None, use_proj=False):
+                 gradient_true=None, use_proj=False, function_without_noise=None):
         # outer props
         self.eps = eps
         self.max_oracle_calls = max_oracle_calls
@@ -21,6 +21,7 @@ class GDOptimizer:
         self.use_jaguar = use_jaguar
         self.use_proj = use_proj
         self.function = function
+        self.function_without_noise = function_without_noise if function_without_noise else function
         # inner props
         self.k = 0
         self.x = x_0
@@ -59,9 +60,13 @@ class GDOptimizer:
                                                                     self.d, self.k, self.norma)
         self.oracle_counter += iters_per_step
         if self.use_jaguar is True:
-            self.h_next = self.h + (self.grad[self.i] - self.h[self.i]) * self.e_i
-            self.h = np.copy(self.h_next)
-            self.grad = np.copy(self.h_next)
+            #######################
+            # self.h_next = self.h + (self.grad[self.i] - self.h[self.i]) * self.e_i
+            # self.h = np.copy(self.h_next)
+            # self.grad = np.copy(self.h_next)
+            #######################
+            self.h[self.i] = self.grad[self.i]
+            self.grad = np.copy(self.h)
 
         return self.x - learning_rate * self.grad
 
@@ -69,13 +74,13 @@ class GDOptimizer:
         if self.criterion == 'x_k - x^*':
             return norm(self.x - self.x_sol, ord=2)
         elif self.criterion == 'f(x_k) - f(x^*)':
-            return self.function(self.x) - self.function(self.x_sol)
+            return self.function_without_noise(self.x) - self.function_without_noise(self.x_sol)
         elif self.criterion == 'x_k+1 - x_k':
             return norm(self.x - self.x_previous, ord=2)
         elif self.criterion == 'f(x_k+1) - f(x_k)':
-            return np.abs(self.function(self.x) - self.function(self.x_previous))
+            return np.abs(self.function_without_noise(self.x) - self.function_without_noise(self.x_previous))
         elif self.criterion == 'nabla(f)(x_k)':
-            temp, _, _, _ = self.get_grad(self.x, self.function, self.gamma, self.d, self.k, self.norma)
+            temp, _, _, _ = self.get_grad(self.x, self.function_without_noise, self.gamma, self.d, self.k, self.norma)
             return norm(temp, ord=2)
         elif self.criterion == 'gap':
             return self.gradient_true(self.x) @ self.x - np.min(self.gradient_true(self.x))
@@ -98,11 +103,11 @@ class GDOptimizer:
 
 
 class CDOptimizer(GDOptimizer):
-    def __init__(self, x_0, get_grad, step, function, gamma=lambda k: 1 / (k + 1), max_oracle_calls=10000,
+    def __init__(self, x_0, get_grad, step, function, gamma=lambda k: 1, max_oracle_calls=10000,
                  set_name=None, norma=2, criterion='f(x_k) - f(x^*)', use_jaguar=False, eps=1e-5, x_sol=None,
-                 gradient_true=None, use_proj=False):
+                 gradient_true=None, use_proj=False, function_without_noise = None):
         GDOptimizer.__init__(self, x_0, get_grad, step, function, gamma, max_oracle_calls, set_name, norma, criterion,
-                             use_jaguar, eps, x_sol, gradient_true, use_proj)
+                             use_jaguar, eps, x_sol, gradient_true, use_proj, function_without_noise)
 
     def get_next(self):
         learning_rate = self.step(self.k)
@@ -114,11 +119,11 @@ class CDOptimizer(GDOptimizer):
 
 
 class SEGAOptimizer(GDOptimizer):
-    def __init__(self, x_0, get_grad, step, function, gamma=lambda k: 1 / (k + 1), max_oracle_calls=10000,
+    def __init__(self, x_0, get_grad, step, function, gamma=lambda k: 1, max_oracle_calls=10000,
                  set_name=None, norma=2, criterion='f(x_k) - f(x^*)', use_jaguar=False, eps=1e-5, x_sol=None,
-                 gradient_true=None, use_proj=False):
+                 gradient_true=None, use_proj=False, function_without_noise = None):
         GDOptimizer.__init__(self, x_0, get_grad, step, function, gamma, max_oracle_calls, set_name, norma, criterion,
-                             use_jaguar, eps, x_sol, gradient_true, use_proj)
+                             use_jaguar, eps, x_sol, gradient_true, use_proj, function_without_noise)
 
     def get_next(self):
         learning_rate = self.step(self.k)
@@ -170,11 +175,12 @@ class MDOptimizer(GDOptimizer):
 
 
 class FWOptimizer(GDOptimizer):
-    def __init__(self, x_0, get_grad, step, function, gamma=lambda k: 1 / (k + 1), max_oracle_calls=10000,
+    def __init__(self, x_0, get_grad, step, function, gamma=lambda k: 1, max_oracle_calls=10000,
                  set_name=None, norma=2, criterion='f(x_k) - f(x^*)', use_jaguar=False, eps=1e-5, x_sol=None,
-                 gradient_true=None, use_proj=False, use_momentum=False, momentum_func=lambda k: 1 / (k + 1)):
-        GDOptimizer.__init__(self, x_0, get_grad, step, function, gamma, max_oracle_calls,
-                             set_name, norma, criterion, use_jaguar, eps, x_sol, gradient_true, use_proj)
+                 gradient_true=None, use_proj=False, use_momentum=False, momentum_func=lambda k: 1 / (k + 1), 
+                 function_without_noise = None):
+        GDOptimizer.__init__(self, x_0, get_grad, step, function, gamma, max_oracle_calls, set_name, norma, 
+                             criterion, use_jaguar, eps, x_sol, gradient_true, use_proj, function_without_noise)
         self.h_next = None
         self.h, _, _, _ = self.get_grad(self.x, self.function, self.gamma, self.d, self.k, self.norma)
         self.y_next = None

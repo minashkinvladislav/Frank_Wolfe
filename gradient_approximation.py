@@ -6,7 +6,7 @@ reload(utils)
 class ZO_oracle:
     def __init__(self, func_name="quadratic", sigma=0, oracle_mode="tpf", args=None):
         self.func_name=func_name
-        if func_name not in ["quadratic"]:
+        if func_name not in ["quadratic", "mushrooms"]:
             raise ValueError(f"Wrong function name {func_name}!")
         self.sigma = sigma
         self.oracle_mode = oracle_mode
@@ -20,6 +20,8 @@ class ZO_oracle:
                 self.c = self.args['c']
             except KeyError:
                 self.c = 0.
+        elif self.func_name == "mushrooms":
+            self.matrix = self.args['matrix']
         self.name = f"{oracle_mode} oracle"
 
     def get_points(self, point_1, point_2=None):
@@ -46,7 +48,20 @@ class ZO_oracle:
             if point_2 is not None:
                 func_2 = utils.quadratic_func(point_2, A=self.A+A_noise_2, 
                                               b=self.b+b_noise_2, c=self.c+c_noise_2)
-        
+        elif self.func_name == "mushrooms":
+            matrix_noise_1 = np.random.normal(loc=0, scale=self.sigma, 
+                                              size=self.matrix.shape)
+            if self.oracle_mode == "opf":
+                matrix_noise_2 = np.random.normal(loc=0, scale=self.sigma, 
+                                                  size=self.matrix.shape)
+            elif point_2 is not None:
+                matrix_noise_2 = np.copy(matrix_noise_1)
+
+            func_1 = utils.logreg_func(point_1, matrix=self.matrix+matrix_noise_1)
+
+            if point_2 is not None:
+                func_2 = utils.logreg_func(point_2, matrix=self.matrix+matrix_noise_2)
+
         if point_2 is not None:
             return func_1, func_2
         else:
@@ -63,6 +78,8 @@ class TrueGradientApproximator:
                 self.c = self.args['c']
             except KeyError:
                 self.c = 0.
+        elif self.func_name == "mushrooms":
+            self.matrix = self.args['matrix']
         self.momentum_k = momentum_k
         self.g_curr = None
         self.name = "True grad"
@@ -71,6 +88,8 @@ class TrueGradientApproximator:
         ### true gradient ###
         if self.func_name == "quadratic":
             grad = utils.quadratic_grad(x, A=self.A, b=self.b)
+        elif self.func_name == "mushrooms":
+            grad = utils.logreg_grad(x, self.matrix)
         if self.momentum_k is not None:
             eta_k = self.momentum_k(k)
             self.g_curr = (1 - eta_k) * grad + eta_k * grad

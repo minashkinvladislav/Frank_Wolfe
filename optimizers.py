@@ -26,14 +26,21 @@ class GDOptimizer:
                 self.A = gradient_approximator.ZO_oracle.A
                 self.b = gradient_approximator.ZO_oracle.b
                 self.c = gradient_approximator.ZO_oracle.c
+            elif self.func_name == "mushrooms":
+                self.matrix = gradient_approximator.ZO_oracle.matrix
         except AttributeError:
             self.func_name = gradient_approximator.func_name
             if self.func_name == "quadratic":
                 self.A = gradient_approximator.A
                 self.b = gradient_approximator.b
+            if self.func_name == "mushrooms":
+                self.matrix = gradient_approximator.matrix    
 
         if x_sol is not None:
-            self.f_sol = utils.quadratic_func(self.x_sol, self.A, self.b, self.c)
+            if self.func_name == "quadratic": 
+                self.f_sol = utils.quadratic_func(self.x_sol, self.A, self.b, self.c)
+            elif self.func_name == "mushrooms":
+                self.f_sol = utils.logreg_func(self.x_sol, self.matrix)
 
         self.R0 = self.get_error(x_0)
         self.max_oracle_calls = max_oracle_calls
@@ -52,9 +59,13 @@ class GDOptimizer:
         if self.x_sol is None: #||grad(x_k)||
             if self.func_name == "quadratic":
                 error = np.linalg.norm(utils.quadratic_grad(x, self.A, self.b))
+            elif self.func_name == 'mushrooms':
+                error = np.linalg.norm(utils.logreg_grad(x, self.matrix)) 
         else: #f(x_k) - f(x_sol)
             if self.func_name == "quadratic":
                 error = utils.quadratic_func(x, self.A, self.b) - self.f_sol
+            if self.func_name == "mushrooms":
+                error = utils.logreg_func(x, self.matrix) - self.f_sol
         return error
     
     def optimize(self):

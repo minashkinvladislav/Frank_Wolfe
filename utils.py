@@ -17,6 +17,16 @@ def quadratic_func(x, A, b, c=0):
 def quadratic_grad(x, A, b):
     return A @ x - b
 
+def logreg_func(x, matrix):
+    x = np.expand_dims(x, axis=1)
+    loss = np.mean(np.log(1 + np.exp(- matrix @ x)))
+    return loss
+
+def logreg_grad(x, matrix):
+    x = np.expand_dims(x, axis=1)
+    grad = - np.mean(matrix / (1 + np.exp(matrix @ x)), axis = 0)
+    return grad
+
 def make_err_plot(optimizers_list, labels=None, title=None, 
                   markers=None, markersize=7, save_name=None, 
                   colors=None, linestyles=None):

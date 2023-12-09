@@ -70,7 +70,8 @@ class GDOptimizer:
     
     def optimize(self):
         if self.gradient_approximator.name == "JAGUAR":
-            num_iter = (self.max_oracle_calls - self.d) // 2 + 1
+            batch_size = self.gradient_approximator.batch_size
+            num_iter = (self.max_oracle_calls - self.d) // (2 * batch_size) + 1
         if self.gradient_approximator.name == "Lame":
             num_iter = self.max_oracle_calls // 2
         if self.gradient_approximator.name == "Turtle":
@@ -95,6 +96,7 @@ class FWOptimizer(GDOptimizer):
                  tol=0.000001, seed=18):
         super().__init__(gradient_approximator, learning_rate_k, 
                          x_0, sett, x_sol, max_oracle_calls, tol, seed)
+        self.name = "FW"
     
     def step(self, x, k):
         gamma_k = self.learning_rate_k(k)

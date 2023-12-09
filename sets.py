@@ -6,7 +6,7 @@ class L2Ball:
         self.name = "L2 Ball"
     
     def projection(self, x):
-        return x / np.linalg.norm(x)
+        return self.R * x / np.linalg.norm(x)
     
     def fw_argmin(self, nabla_f):
         return - self.R * nabla_f / np.linalg.norm(nabla_f)

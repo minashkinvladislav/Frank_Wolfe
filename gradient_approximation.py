@@ -99,12 +99,13 @@ class TrueGradientApproximator:
         return self.g_curr, 1
 
 class JaguarApproximator:
-    def __init__(self, ZO_oracle, gamma=1e-4, momentum_k=None):
+    def __init__(self, ZO_oracle, gamma=1e-4, momentum_k=None, batch_size=1):
         self.ZO_oracle = ZO_oracle # instance of ZO_oracle
         self.gamma = gamma
         self.momentum_k = momentum_k
         self.h_curr = None
         self.g_curr = None
+        self.batch_size = batch_size
         self.name = "JAGUAR"
         
     def approx_gradient(self, x, k):
@@ -123,21 +124,23 @@ class JaguarApproximator:
             self.g_curr = np.copy(self.h_curr) 
             oracle_calls = d
         else:
-            i = np.random.choice(range(d))
-            e_i = np.zeros_like(x)
-            e_i[i] = 1.
-            point_1 = x + self.gamma * e_i
-            point_2 = x - self.gamma * e_i
-
-            func_1, func_2 = self.ZO_oracle.get_points(point_1, point_2)
-            approx_grad = (func_1 - func_2) / (2. * self.gamma) * e_i
-            self.h_curr = self.h_curr - self.h_curr[i] * e_i + approx_grad
+            approx_grad = np.zeros_like(x)
+            oracle_calls = 0
+            batch_indices = np.random.choice(d, self.batch_size, replace=False)
+            for i in batch_indices:
+                e_i = np.zeros_like(x)
+                e_i[i] = 1.
+                point_1 = x + self.gamma * e_i
+                point_2 = x - self.gamma * e_i
+                func_1, func_2 = self.ZO_oracle.get_points(point_1, point_2)
+                approx_grad = (func_1 - func_2) / (2. * self.gamma) * e_i
+                self.h_curr = self.h_curr - self.h_curr[i] * e_i + approx_grad
             if self.momentum_k is not None:
                 eta_k = self.momentum_k(k)
                 self.g_curr = (1 - eta_k) * self.g_curr + eta_k * self.h_curr
             else:
                 self.g_curr = np.copy(self.h_curr)
-            oracle_calls = 2
+            oracle_calls = 2 * self.batch_size
 
         return self.g_curr, oracle_calls
     
@@ -193,13 +196,4 @@ class TurtleApproximator:
         else:
             self.g_curr = np.copy(approx_grad)
 
-        return self.g_curr, d
-
-    
-
-
-            
-            
-
-
-    
+        return self.g_curr, d 
